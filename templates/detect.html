@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>ParkAssist AI - Vehicle Blockage Detection</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #74ebd5, #acb6e5);
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0;
+    }
+
+    .container {
+      background-color: #ffffffdd;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .page-title {
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .page-subtitle {
+      color: #64748b;
+      font-size: 14px;
+      margin-top: -10px;
+      margin-bottom: 25px;
+    }
+
+    .upload-box {
+      border: 2px dashed #94a3b8;
+      border-radius: 15px;
+      padding: 25px;
+      background: rgba(255, 255, 255, 0.7);
+      transition: 0.3s ease;
+    }
+
+    .upload-box:hover {
+      border-color: #0d6efd;
+      background: #f8fbff;
+    }
+
+    .upload-title {
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+
+    .upload-info {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 8px;
+    }
+
+    .preview-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .preview-card {
+      position: relative;
+      width: 115px;
+      height: 90px;
+      overflow: hidden;
+      border-radius: 10px;
+      border: 2px solid #dee2e6;
+      background: #f8f9fa;
+    }
+
+    .preview-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .preview-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.65);
+      color: white;
+      font-size: 11px;
+      text-align: center;
+      padding: 3px;
+    }
+
+    .result {
+      padding: 15px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-align: center;
+      font-size: 18px;
+      margin-top: 15px;
+    }
+
+    .Blocked {
+      background-color: #ffe5e5;
+      color: #dc3545;
+      border: 2px dashed #dc3545;
+    }
+
+    .Not-Blocked {
+      background-color: #e0ffe0;
+      color: #198754;
+      border: 2px dashed #198754;
+    }
+
+    .uploaded-img {
+      max-width: 100%;
+      max-height: 450px;
+      object-fit: contain;
+      border-radius: 12px;
+      border: 3px solid #dee2e6;
+      margin-top: 15px;
+    }
+
+    #locationStatus {
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .angle-hint {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 13px;
+    }
+
+    .btn-primary {
+      border-radius: 10px;
+      padding: 10px 22px;
+      font-weight: 600;
+    }
+
+    .btn-warning {
+      border-radius: 10px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container mt-4">
+
+  <!-- Page heading -->
+  <div class="text-center">
+
+    <h2 class="page-title">🚗 ParkAssist AI</h2>
+
+    <p class="page-subtitle">
+      Detect. Alert. Unblock.
+    </p>
+
+  </div>
+
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+
+    {% if messages %}
+
+      {% for category, message in messages %}
+
+        <div
+          class="alert alert-{{ category }} alert-dismissible fade show"
+          role="alert"
+        >
+
+          {{ message }}
+
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="alert"
+          ></button>
+
+        </div>
+
+      {% endfor %}
+
+    {% endif %}
+
+  {% endwith %}
+
+
+  <!-- Upload vehicle images -->
+  <form
+    method="POST"
+    enctype="multipart/form-data"
+    class="mb-4"
+    id="uploadForm"
+  >
+
+    <div class="upload-box">
+
+      <div class="text-center">
+
+        <div style="font-size: 38px; margin-bottom: 8px;">
+          📷
+        </div>
+
+        <div class="upload-title">
+          Upload Vehicle Images
+        </div>
+
+        <div class="upload-info">
+          Upload 1 image for normal detection or up to 4 images
+          from different angles for multi-view analysis.
+        </div>
+
+      </div>
+
+
+      <div class="mb-3 mt-3">
+
+        <input
+          type="file"
+          class="form-control"
+          name="images"
+          id="vehicleImages"
+          accept="image/*"
+          multiple
+        />
+
+      </div>
+
+
+      <!-- Angle suggestion -->
+      <div class="angle-hint">
+
+        <strong>💡 Suggested views:</strong>
+
+        <br>
+
+        📷 Front &nbsp; • &nbsp;
+        📷 Rear &nbsp; • &nbsp;
+        📷 Left &nbsp; • &nbsp;
+        📷 Right
+
+        <br>
+
+        <small>
+          Multiple images are optional. A single image is also supported.
+        </small>
+
+      </div>
+
+
+      <!-- Selected image preview -->
+      <div
+        id="previewContainer"
+        class="preview-container"
+      ></div>
+
+
+      <div class="text-center mt-4">
+
+        <button
+          type="submit"
+          class="btn btn-primary"
+          id="detectButton"
+        >
+          🔍 Analyze Vehicle
+        </button>
+
+      </div>
+
+    </div>
+
+  </form>
+
+
+  {% if image %}
+
+    <!-- Detection result -->
+    <div
+      class="result {{ 'Blocked' if status == 'Blocked' else 'Not-Blocked' }}"
+    >
+
+      {% if status == 'Blocked' %}
+
+        🚨 Status: Blocked
+
+      {% else %}
+
+        ✅ Status: Not Blocked
+
+      {% endif %}
+
+    </div>
+
+
+    <!-- Uploaded / processed image -->
+    <div class="text-center">
+
+      <img
+        src="{{ url_for('static', filename='uploads/' + image) }}"
+        alt="Vehicle Image"
+        class="uploaded-img"
+      />
+
+    </div>
+
+
+    {% if status == 'Blocked' %}
+
+      <!-- Notify owner form -->
+      <form
+        method="POST"
+        action="{{ url_for('notify') }}"
+        class="mt-4"
+        id="notifyForm"
+      >
+
+        <!-- Vehicle number -->
+        <div class="mb-3">
+
+          <label class="form-label fw-semibold">
+            Enter Blocking Vehicle Number
+          </label>
+
+          <input
+            type="text"
+            name="vehicle_number"
+            class="form-control"
+            placeholder="e.g. TS09AB1234"
+            required
+          />
+
+        </div>
+
+
+        <!-- Hidden image information -->
+        <input
+          type="hidden"
+          name="image_path"
+          value="{{ image }}"
+        />
+
+
+        <!-- Hidden GPS fields -->
+        <input
+          type="hidden"
+          name="latitude"
+          id="latitude"
+          value="{{ latitude or '' }}"
+        />
+
+        <input
+          type="hidden"
+          name="longitude"
+          id="longitude"
+          value="{{ longitude or '' }}"
+        />
+
+
+        <!-- Location status -->
+        <div
+          id="locationStatus"
+          class="text-secondary"
+        >
+          📍 Getting your location...
+        </div>
+
+
+        <!-- Notify button -->
+        <div class="text-center">
+
+          <button
+            type="submit"
+            class="btn btn-warning mt-2"
+            id="notifyButton"
+          >
+            📨 Notify Owner
+          </button>
+
+        </div>
+
+      </form>
+
+    {% endif %}
+
+  {% endif %}
+
+</div>
+
+
+<!-- Bootstrap -->
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+</script>
+
+
+<script>
+
+/* ============================================================
+   MULTIPLE IMAGE PREVIEW
+   ============================================================ */
+
+const imageInput = document.getElementById("vehicleImages");
+
+const previewContainer =
+  document.getElementById("previewContainer");
+
+
+if (imageInput) {
+
+  imageInput.addEventListener("change", function () {
+
+    previewContainer.innerHTML = "";
+
+    const files = Array.from(this.files);
+
+
+    // No image selected
+    if (files.length === 0) {
+      return;
+    }
+
+
+    // Maximum 4 images
+    if (files.length > 4) {
+
+      alert("Please select a maximum of 4 images.");
+
+      this.value = "";
+
+      return;
+    }
+
+
+    files.forEach(function (file, index) {
+
+      const reader = new FileReader();
+
+
+      reader.onload = function (event) {
+
+        const previewCard =
+          document.createElement("div");
+
+        previewCard.className =
+          "preview-card";
+
+
+        const img =
+          document.createElement("img");
+
+        img.src =
+          event.target.result;
+
+
+        const label =
+          document.createElement("div");
+
+        label.className =
+          "preview-label";
+
+        label.textContent =
+          "View " + (index + 1);
+
+
+        previewCard.appendChild(img);
+
+        previewCard.appendChild(label);
+
+        previewContainer.appendChild(previewCard);
+
+      };
+
+
+      reader.readAsDataURL(file);
+
+    });
+
+  });
+
+}
+
+
+/* ============================================================
+   LOCATION / GPS
+   ============================================================ */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+
+    const notifyForm =
+      document.getElementById("notifyForm");
+
+    const latitudeField =
+      document.getElementById("latitude");
+
+    const longitudeField =
+      document.getElementById("longitude");
+
+    const locationStatus =
+      document.getElementById("locationStatus");
+
+    const notifyButton =
+      document.getElementById("notifyButton");
+
+
+    // No notification form on the page
+    if (!notifyForm) {
+      return;
+    }
+
+
+    /*
+      Get current browser location
+    */
+    function getLocation(callback) {
+
+      if (!navigator.geolocation) {
+
+        locationStatus.textContent =
+          "❌ Geolocation is not supported by this browser.";
+
+        callback(false);
+
+        return;
+      }
+
+
+      locationStatus.textContent =
+        "📍 Requesting location permission...";
+
+
+      navigator.geolocation.getCurrentPosition(
+
+        function (position) {
+
+          const latitude =
+            position.coords.latitude;
+
+          const longitude =
+            position.coords.longitude;
+
+
+          // Save coordinates
+          latitudeField.value =
+            latitude;
+
+          longitudeField.value =
+            longitude;
+
+
+          locationStatus.textContent =
+            "✅ Location detected successfully.";
+
+
+          console.log(
+            "Latitude:",
+            latitude
+          );
+
+
+          console.log(
+            "Longitude:",
+            longitude
+          );
+
+
+          callback(true);
+
+        },
+
+
+        function (error) {
+
+          console.error(
+            "Location error:",
+            error.message
+          );
+
+
+          locationStatus.textContent =
+            "❌ Location permission denied or unavailable.";
+
+
+          callback(false);
+
+        },
+
+
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+
+      );
+
+    }
+
+
+    /*
+      Request location when page loads
+    */
+    getLocation(function (success) {
+
+      if (success) {
+
+        notifyButton.disabled =
+          false;
+
+      }
+
+    });
+
+
+    /*
+      Check location before sending notification
+    */
+    notifyForm.addEventListener(
+      "submit",
+      function (event) {
+
+        const latitude =
+          latitudeField.value;
+
+        const longitude =
+          longitudeField.value;
+
+
+        // Location already available
+        if (latitude && longitude) {
+
+          notifyButton.disabled =
+            true;
+
+          notifyButton.textContent =
+            "📨 Sending Notification...";
+
+          return;
+
+        }
+
+
+        // Temporarily stop form submission
+        event.preventDefault();
+
+
+        notifyButton.disabled =
+          true;
+
+        notifyButton.textContent =
+          "📍 Getting Location...";
+
+
+        getLocation(function (success) {
+
+          if (success) {
+
+            notifyButton.textContent =
+              "📨 Sending Notification...";
+
+
+            // Submit after GPS coordinates are available
+            notifyForm.submit();
+
+          }
+
+          else {
+
+            notifyButton.disabled =
+              false;
+
+            notifyButton.textContent =
+              "📨 Notify Owner";
+
+
+            alert(
+              "Please allow location access in your browser before sending the notification."
+            );
+
+          }
+
+        });
+
+      }
+    );
+
+  }
+);
+
+</script>
+
+</body>
+</html>
